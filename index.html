@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple WhatsApp-like Webpage</title>
+  <style>
+    :root{
+      --green:#c02968;
+      --dark:#085480;
+      --light:#f0f2f5;
+      --muted:#8696a0;
+      --accent:#34b7f1;
+      font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;
+    height:100vh;
+    background:var(--light);
+    display:flex;
+    align-items:stretch
+    }
+
+    /* layout */
+    .app{width:100%;
+    max-width:1100px;
+    margin:auto;
+    height:92vh;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 6px 24px rgba(0,0,0,0.12);
+    display:flex
+    }
+
+    /* left: contacts */
+    .sidebar{
+    width:320px;
+    background:#ffffff;
+    border-right:1px solid #e6edf0;
+    display:flex;
+    flex-direction:column
+    }
+    .brand{
+    background:linear-gradient(90deg,var(--green),#cca807);
+    color:white;
+    padding:16px;
+    font-weight:600
+    }
+    .search{
+    padding:10px;
+    border-bottom:1px solid #eef3f4
+    }
+    .search input{width:100%;padding:10px;border-radius:20px;border:1px solid #dfe9ea}
+    .contacts{flex:1;overflow:auto}
+    .contact{display:flex;gap:12px;padding:12px;border-bottom:1px solid #f2f5f6;cursor:pointer;align-items:center}
+    .contact:hover{background:#fbfdfe}
+    .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    .contact .meta{flex:1}
+    .name{font-weight:600}
+    .last{font-size:13px;color:var(--muted)}
+
+    /* right: chat area */
+    .chat{flex:1;display:flex;flex-direction:column;background:linear-gradient(180deg,white,#fbfeff)}
+    .chat-header{padding:14px 18px;border-bottom:1px solid #e9f0f1;display:flex;align-items:center;gap:12px}
+    .chat-header .title{font-weight:700}
+    .messages{flex:1;padding:20px;overflow:auto;background-image:repeating-linear-gradient(transparent, transparent 60px, rgba(0,0,0,0.002) 60px);}
+    .msg{max-width:70%;padding:10px 12px;border-radius:8px;margin:8px 0;display:inline-block;word-break:break-word}
+    .msg.me{background:var(--green);color:white;margin-left:auto;border-bottom-right-radius:2px}
+    .msg.you{background:#fff;border:1px solid #e6eef0;color:#111}
+    .time{display:block;font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+
+    .composer{padding:12px;border-top:1px solid #e9f0f1;display:flex;gap:10px;align-items:center}
+    .composer input{flex:1;padding:10px 12px;border-radius:24px;border:1px solid #dfe9ea}
+    .send{border:none;background:var(--green);color:white;padding:10px 16px;border-radius:8px;cursor:pointer}
+
+    /* small screens */
+    @media (max-width:720px){
+      .sidebar{display:none}
+      .app{max-width:420px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <aside class="sidebar" aria-label="Contacts">
+      <div class="brand">MyChat!</div>
+      <div class="search"><input id="searchInput" placeholder="Search or start new chat" aria-label="search contacts"></div>
+      <div class="contacts" id="contactsList">
+        <!-- contacts populated by JS -->
+      </div>
+    </aside>
+
+    <main class="chat">
+      <div class="chat-header" id="chatHeader">
+        <div class="avatar" id="chatAvatar">A</div>
+        <div>
+          <div class="title" id="chatName">Select a contact</div>
+          <div class="last" id="chatStatus">Online</div>
+        </div>
+      </div>
+
+      <div class="messages" id="messages" aria-live="polite">
+        <div style="text-align:center;color:var(--muted);margin-top:40px">Choose a contact on the left to start chatting</div>
+      </div>
+
+      <div class="composer">
+        <input id="messageInput" placeholder="Type a message" aria-label="Type a message" autocomplete="off">
+        <button class="send" id="sendBtn">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Simple demo data
+    const contacts = [
+      {id:1,name:'Sakshi',last:'Hey, are you coming?', initials:'S'},
+      {id:2,name:'Yash',last:'Sent the files', initials:'Y'},
+      {id:3,name:'Uttkarsha',last:'Ok, cool', initials:'U'}
+    ];
+
+    const contactsList = document.getElementById('contactsList');
+    const messagesEl = document.getElementById('messages');
+    const chatName = document.getElementById('chatName');
+    const chatStatus = document.getElementById('chatStatus');
+    const chatAvatar = document.getElementById('chatAvatar');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    let activeContact = null;
+    const history = {};
+
+    function renderContacts(filter=''){
+      contactsList.innerHTML = '';
+      contacts.filter(c => c.name.toLowerCase().includes(filter.toLowerCase())).forEach(c=>{
+        const div = document.createElement('div');
+        div.className = 'contact';
+        div.tabIndex = 0;
+        div.innerHTML = `<div class="avatar">${c.initials}</div><div class="meta"><div class="name">${c.name}</div><div class="last">${c.last}</div></div>`;
+        div.onclick = ()=>selectContact(c.id);
+        contactsList.appendChild(div);
+      });
+    }
+
+    function selectContact(id){
+      activeContact = contacts.find(c=>c.id===id);
+      chatName.textContent = activeContact.name;
+      chatAvatar.textContent = activeContact.initials;
+      chatStatus.textContent = 'Online';
+      renderMessages();
+    }
+
+    function renderMessages(){
+      messagesEl.innerHTML = '';
+      const msgs = history[activeContact.id] || [
+        {from:'you',text:activeContact.last,time:'10:00 AM'}
+      ];
+      msgs.forEach(m=>{
+        const b = document.createElement('div');
+        b.className = 'msg ' + (m.from==='me' ? 'me' : 'you');
+        b.innerHTML = `<div>${escapeHtml(m.text)}</div><span class="time">${m.time}</span>`;
+        messagesEl.appendChild(b);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function sendMessage(){
+      const text = messageInput.value.trim();
+      if(!text || !activeContact) return;
+      const time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      history[activeContact.id] = history[activeContact.id] || [];
+      history[activeContact.id].push({from:'me',text,time});
+      messageInput.value = '';
+      renderMessages();
+      // simple auto-reply
+      setTimeout(()=>{
+        history[activeContact.id].push({from:'you',text:'Auto-reply: I got your message',time:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
+        renderMessages();
+      },800);
+    }
+
+    function escapeHtml(unsafe){
+      return unsafe.replace(/[&<"'>]/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});
+    }
+
+    document.getElementById('searchInput').addEventListener('input',(e)=>renderContacts(e.target.value));
+    sendBtn.addEventListener('click',sendMessage);
+    messageInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter') sendMessage(); });
+
+    // init
+    renderContacts();
+  </script>
+</body>
+</html>
