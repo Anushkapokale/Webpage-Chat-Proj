@@ -22,4 +22,6 @@ This project demonstrates contacts, chat interface, sending messages, and auto-r
 
 ---
 
-## 📂 Project Structure
+
+
+
